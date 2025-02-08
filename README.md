@@ -1,2 +1,2 @@
 # MultilayerPerceptron
-Multi-Layer Perception (MLP) Model, trained on NIST data.
+Multi-Layer Perception (MLP) Model, trained on MNIST data.
