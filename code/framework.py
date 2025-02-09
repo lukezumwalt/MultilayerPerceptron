@@ -12,10 +12,10 @@ from typing import Callable
 import numpy as np
 import torch
 import tqdm
-#from torchvision import datasets, transforms
-from mnist import MnistDataloader
+# from torchvision import datasets, transforms
+# from mnist import MnistDataloader
+from mnist_parser import *
 from activations import ReLU, LeakyReLU
-
 
 class MLP:
     '''
@@ -147,19 +147,24 @@ def TestMLP(model: MLP, x_test: torch.Tensor, y_test: torch.Tensor) -> tuple[flo
         p /= torch.sum(p, dim = 1, keepdim = True)
         l = -1 * torch.sum(y * torch.log(p))
         L += l
-        
+
         A += torch.sum(torch.where(torch.argmax(p, dim = 1) == torch.argmax(y, dim = 1), 1, 0))
 
-    print("Test Loss:", L / ((N // bs) * bs), "Test Accuracy: {:.2f}%".format(100 * A / ((N // bs) * bs)))
+    testLoss = L / ((N // bs) * bs)
+    testAccuracy = 100 * A / ((N // bs) * bs)
+    print(f"Test Loss: {testLoss}\nTest Accuracy: {testAccuracy:.2f}")
+
+    return testLoss, testAccuracy
 
 def normalize_mnist() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     '''
-    This function loads the MNIST dataset, then normalizes the "X" values to have zero mean, unit variance. 
+    This function loads the MNIST dataset, then normalizes 
+    the "X" values to have zero mean, unit variance. 
     '''
 
     # Personal Path:
     base_path = "C:/Users/Luke/Courses/CSCI5922/Lab 1/MultilayerPerceptron/data/MNIST"
-    
+
     # Optional section providing access to the PyTorch data set.
     # Uncomment to use:
     ## trainset = datasets.MNIST('~/.pytorch/MNIST_data/', 
@@ -168,9 +173,10 @@ def normalize_mnist() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.T
     ##                           transform=transforms.ToTensor())
 
     # Load files and obtain meta stat parameters
-    mnist = MnistDataloader(base_path + "train-images.idx3-ubyte", base_path + "train-labels.idx1-ubyte",
-                            base_path + "t10k-images.idx3-ubyte", base_path + "t10k-labels.idx1-ubyte")
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    (x_train, y_train) = load_and_preprocess_mnist(base_path + "train-images.idx3-ubyte",
+                                                   base_path + "train-labels.idx1-ubyte")
+    (x_test, y_test) = load_and_preprocess_mnist(base_path + "t10k-images.idx3-ubyte",
+                                                 base_path + "t10k-labels.idx1-ubyte")
     x_mean = torch.mean(x_train, dim = 0, keepdim = True)
     x_std = torch.std(x_train, dim = 0, keepdim = True)
 
