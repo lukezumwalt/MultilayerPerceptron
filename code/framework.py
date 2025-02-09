@@ -78,15 +78,35 @@ class MLP:
             self.biases.append(b)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        #Complete this function
-        
         '''
-        This function should loop over all layers, forward propagating the input via:
-        x_i+1 = f(x_iW + b)
-        Remember to STORE THE INTERMEDIATE FEATURES!
-        '''
+        Forward pass through all layers. 
+        x_i+1 = f(x_i*W + b)
 
-        return x
+        For the hidden layers, apply the chosen activation function.
+        For the final layer, return raw logits (no activation).
+        Stores the "post-activation" features at each layer for back-prop.
+        '''
+        # Clear out the old features each time
+        self.features = []
+        self.features.append(x)  # x^0 = input
+
+        # Instantiate the activation neuron object (same function used for all hidden layers)
+        act = self.activation_function()
+
+        for i in range(self.num_layers):
+            # z = x_{i} * W_{i} + b_{i}
+            z = self.features[i] @ self.weights[i] + self.biases[i]
+
+            if i < self.num_layers - 1:
+                # Hidden layer => apply activation
+                out = act.forward(z)
+            else:
+                # Final layer => raw logits, no activation
+                out = z
+
+            self.features.append(out)
+
+        return self.features[-1]  # Return the final output (logits)
     
     def backward(self, delta: torch.Tensor) -> None:
         #Complete this function
@@ -99,36 +119,44 @@ class MLP:
         return
 
 
-def TrainMLP(model: MLP, x_train: torch.Tensor, y_train: torch.Tensor) -> MLP:
-    #Complete this function
-
+def train_mlp(model: MLP, x_train: torch.Tensor, y_train: torch.Tensor) -> MLP:
     '''
-    This function should train the MLP for 1 epoch, using the provided data and forward/backward propagating as necessary.
+    Train the MLP for 1 epoch using the provided data. 
+    Uses random mini-batches of size model.batch_size.
     '''
 
-    #set up a random sampling of the data
+    # Random sampling of data
     bs = model.batch_size
     N = x_train.shape[0]
     rng = np.random.default_rng()
     idx = rng.permutation(N)
 
-    #variable to accumulate total loss over the epoch
-    L = 0
+    # Total Cross-Entropy Loss accumulated over the epoch
+    L = 0.0
 
+    # For each sample in the batch...
     for i in tqdm.tqdm(range(N // bs)):
         x = x_train[idx[i * bs:(i + 1) * bs], ...]
         y = y_train[idx[i * bs:(i + 1) * bs], ...]
 
-        #forward propagate and compute loss (l) here
-        
-        L += l
-        
+        # Forward pass
+        logits = model.forward(x)  # shape [bs, #classes]
+
+        # Convert to probabilities
+        p = torch.exp(logits)
+        p /= torch.sum(p, dim=1, keepdim=True)  # shape [bs, #classes]
+
+        # Cross-Entropy loss
+        l = -torch.sum(y * torch.log(p + 1e-12))  # small epsilon for safety
+        L += l.item()
+
         #backpropagate here
 
-    print("Train Loss:", L / ((N // bs) * bs))
+    trainingLoss = L / ((N // bs) * bs)
+    print(f"Train Loss: {trainingLoss:.2f}" )
 
 
-def TestMLP(model: MLP, x_test: torch.Tensor, y_test: torch.Tensor) -> tuple[float, float]:
+def test_mlp(model: MLP, x_test: torch.Tensor, y_test: torch.Tensor) -> tuple[float, float]:
     bs = model.batch_size
     N = x_test.shape[0]
 
@@ -163,7 +191,7 @@ def normalize_mnist() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.T
     '''
 
     # Personal Path:
-    base_path = "C:/Users/Luke/Courses/CSCI5922/Lab 1/MultilayerPerceptron/data/MNIST"
+    base_path = "C:/Users/Luke/Courses/CSCI5922/Lab 1/MultilayerPerceptron/data/MNIST/"
 
     # Optional section providing access to the PyTorch data set.
     # Uncomment to use:
@@ -214,8 +242,8 @@ def main():
 
     E = 25
     for _ in range(E):
-        TrainMLP(model, x_train, y_train)
-        TestMLP(model, x_test, y_test)
+        train_mlp(model, x_train, y_train)
+        test_mlp(model, x_test, y_test)
 
 if __name__ == "__main__":
     main()
