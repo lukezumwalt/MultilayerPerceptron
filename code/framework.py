@@ -1,13 +1,26 @@
-import torch
-import numpy as np
-import tqdm
+"""
+Multi-Layered Perceptron.
 
-from activations import *
-from mnist import *
+Design to implement:
+- ReLU
+- Leaky ReLU
+
+Trained on:
+- MNIST, handwritten 0-9
+"""
+from typing import Callable
+import numpy as np
+import torch
+import tqdm
+#from torchvision import datasets, transforms
+from mnist import MnistDataloader
+from activations import ReLU, LeakyReLU
+
 
 class MLP:
     '''
-    This class should implement a generic MLP learning framework. The core structure of the program has been provided for you.
+    This class should implement a generic MLP learning framework.
+    The core structure of the program has been provided for you.
     But, you need to complete the following functions:
     1: initialize()
     2: forward(), including activations
@@ -15,38 +28,56 @@ class MLP:
     4: TrainMLP()
     '''
     def __init__(self, layer_sizes: list[int]):
-        #Storage for model parameters
+        # Baseline architecture
         self.layer_sizes: list[int] = layer_sizes
         self.num_layers = len(layer_sizes) - 1
-        self.weights: list[torch.tensor] = []
-        self.biases: list[torch.tensor] = []
 
-        #Temporary data
-        self.features: list[torch.tensor] = []
+        # Storage for model Parameters
+        self.weights: list[torch.Tensor] = []
+        self.biases: list[torch.Tensor] = []
 
-        #hyper-parameters w/ default values
+        # Storage for hidden-layer activations for backwards-propagation
+        self.features: list[torch.Tensor] = []
+
+        # Default model Hyper-Parameters
         self.learning_rate: float = 1
         self.batch_size: int = 1
-        self.activation_function: callable[[torch.tensor], torch.tensor] = ReLU
+        self.activation_function: Callable[[torch.Tensor], torch.Tensor] = ReLU
+
+        # self.learning_rate: float = 1e-3
+        # self.activation_function = ReLU  # or LeakyReLU, etc.
+
 
     def set_hp(self, lr: float, bs: int, activation: object) -> None:
+        '''
+        Defines Hyper-Parameters.
+        '''
         self.learning_rate = lr
         self.batch_size = bs
         self.activation_function = activation
 
-        return
-
     def initialize(self) -> None:
-        #Complete this function
-        
         '''
-        initialize all biases to zero, and all weights with random sampling from a unifrom distribution.
+        Initialize all biases to zero.
+        Initialize all weights with random sampling from a uniform distribution.
         This uniform distribution should have range +/- sqrt(6 / (d_in + d_out))
         '''
+        self.weights = []
+        self.biases = []
+        for i in range(self.num_layers):
+            d_in = self.layer_sizes[i]
+            d_out = self.layer_sizes[i+1]
+            # Range for uniform dist
+            limit = np.sqrt(6.0 / (d_in + d_out))
+            # Implemented below:
+            # ((2*range*random_dist) - range) ∃ [-lim, lim]
+            W = (torch.rand(d_in, d_out)*2*limit) - limit   # shape: [d_in, d_out]
+            b = torch.zeros(d_out)                          # shape: [d_out]
 
-        return
+            self.weights.append(W)
+            self.biases.append(b)
 
-    def forward(self, x: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         #Complete this function
         
         '''
@@ -57,7 +88,7 @@ class MLP:
 
         return x
     
-    def backward(self, delta: torch.tensor) -> None:
+    def backward(self, delta: torch.Tensor) -> None:
         #Complete this function
         
         '''
@@ -68,7 +99,7 @@ class MLP:
         return
 
 
-def TrainMLP(model: MLP, x_train: torch.tensor, y_train: torch.tensor) -> MLP:
+def TrainMLP(model: MLP, x_train: torch.Tensor, y_train: torch.Tensor) -> MLP:
     #Complete this function
 
     '''
@@ -97,7 +128,7 @@ def TrainMLP(model: MLP, x_train: torch.tensor, y_train: torch.tensor) -> MLP:
     print("Train Loss:", L / ((N // bs) * bs))
 
 
-def TestMLP(model: MLP, x_test: torch.tensor, y_test: torch.tensor) -> tuple[float, float]:
+def TestMLP(model: MLP, x_test: torch.Tensor, y_test: torch.Tensor) -> tuple[float, float]:
     bs = model.batch_size
     N = x_test.shape[0]
 
@@ -121,39 +152,46 @@ def TestMLP(model: MLP, x_test: torch.tensor, y_test: torch.tensor) -> tuple[flo
 
     print("Test Loss:", L / ((N // bs) * bs), "Test Accuracy: {:.2f}%".format(100 * A / ((N // bs) * bs)))
 
-def normalize_mnist() -> tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor]:
+def normalize_mnist() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     '''
     This function loads the MNIST dataset, then normalizes the "X" values to have zero mean, unit variance. 
     '''
 
-    #IMPORTANT!!!#
-    #UPDATE THE PATH BELOW!#
-    base_path = 
-    #^^^^^^^^#
-    #Update this to point to your downloaded MNIST files.
-    #E.g., if you've downloaded the data to {SomePath}/Downloads, you would put {SomePath}/Downloads/MNIST/
+    # Personal Path:
+    base_path = "C:/Users/Luke/Courses/CSCI5922/Lab 1/MultilayerPerceptron/data/MNIST"
+    
+    # Optional section providing access to the PyTorch data set.
+    # Uncomment to use:
+    ## trainset = datasets.MNIST('~/.pytorch/MNIST_data/', 
+    ##                           download=True, 
+    ##                           train=True, 
+    ##                           transform=transforms.ToTensor())
 
-
+    # Load files and obtain meta stat parameters
     mnist = MnistDataloader(base_path + "train-images.idx3-ubyte", base_path + "train-labels.idx1-ubyte",
                             base_path + "t10k-images.idx3-ubyte", base_path + "t10k-labels.idx1-ubyte")
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    
     x_mean = torch.mean(x_train, dim = 0, keepdim = True)
     x_std = torch.std(x_train, dim = 0, keepdim = True)
 
+    # Normalize training data
     x_train -= x_mean
     x_train /= x_std
-    x_train[x_train != x_train] = 0
 
+    # Normalize testing data
     x_test -= x_mean
     x_test /= x_std
+
+    # Replace NaNs from dividing by zero
+    x_train[x_train != x_train] = 0
     x_test[x_test != x_test] = 0
 
     return x_train, y_train, x_test, y_test
 
 def main():
     '''
-    This is an example of how to use the framework when completed. You can build off of this code to design your experiments for part 2.
+    This is an example of how to use the framework when completed.
+    You can build off of this code to design your experiments for part 2.
     '''
 
     x_train, y_train, x_test, y_test = normalize_mnist()
