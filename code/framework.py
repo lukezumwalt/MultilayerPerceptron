@@ -109,12 +109,49 @@ class MLP:
         return self.features[-1]  # Return the final output (logits)
     
     def backward(self, delta: torch.Tensor) -> None:
-        #Complete this function
-        
         '''
-        This function should backpropagate the provided delta through the entire MLP, and update the weights according to the hyper-parameters
+        This function backpropagates the provided delta through the entire MLP, 
+        and updates the weights according to the hyper-parameters
         stored in the class variables.
         '''
+        # Helpful terms stored for re-use
+        act = self.activation_function()
+        L = self.num_layers
+
+        # Backward layer by layer
+        for i in reversed(range(L)):
+
+            
+            # current layer's output was self.features[i+1]
+            # current layer's input  was self.features[i]
+            if i < (L - 1):
+                # We are at a hidden layer, so multiply by derivative of activation
+                # The 'x' passed to backward(...) is the pre-activated input,
+                # which here is the tensor before the ReLU clamp.  If you only
+                # stored post-activation, you can still check where that is >0, etc.
+                x_post_act = self.features[i+1]
+                delta = act.backward(delta, x_post_act)
+
+            x_in = self.features[i]
+
+            # Weight gradient: dW = x_in^T @ delta
+            dW = x_in.transpose(0,1) @ delta
+
+            # Bias gradient: sum across batch dim
+            db = torch.sum(delta,dim=0)
+
+            # Average the batch
+            dW /= self.batch_size
+            db /= self.batch_size
+
+            # Gradient descent updating
+            self.weights[i] = self.weights[i] - self.learning_rate*dW
+            self.biases[i] = self.biases[i] - self.learning_rate*db
+
+            # Propagate delta to next layer (i-1)
+            # ...only if i > 0
+            if i > 0:
+                delta = delta @ self.weights[i].transpose(0,1)
 
         return
 
