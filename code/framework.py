@@ -107,7 +107,7 @@ class MLP:
             self.features.append(out)
 
         return self.features[-1]  # Return the final output (logits)
-    
+
     def backward(self, delta: torch.Tensor) -> None:
         '''
         This function backpropagates the provided delta through the entire MLP, 
@@ -121,7 +121,6 @@ class MLP:
         # Backward layer by layer
         for i in reversed(range(L)):
 
-            
             # current layer's output was self.features[i+1]
             # current layer's input  was self.features[i]
             if i < (L - 1):
@@ -187,13 +186,19 @@ def train_mlp(model: MLP, x_train: torch.Tensor, y_train: torch.Tensor) -> MLP:
         l = -torch.sum(y * torch.log(p + 1e-12))  # small epsilon for safety
         L += l.item()
 
-        #backpropagate here
+        # Backprop (standard CE+softmax gradient)
+        delta = p - y
+        model.backward(delta)
 
-    trainingLoss = L / ((N // bs) * bs)
-    print(f"Train Loss: {trainingLoss:.2f}" )
+    training_loss = L / ((N // bs) * bs)
+    print(f"Train Loss: {training_loss:.2f}" )
 
 
 def test_mlp(model: MLP, x_test: torch.Tensor, y_test: torch.Tensor) -> tuple[float, float]:
+    '''
+    Tests the MLP, after training it on training batches
+    the learned model is put against a controlled test set.
+    '''
     bs = model.batch_size
     N = x_test.shape[0]
 
